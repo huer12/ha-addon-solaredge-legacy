@@ -8,6 +8,31 @@ It uses a FRITZ!Box packet capture of the inverter's own traffic and decrypts it
 
 **Status:** work in progress. A working prototype is in `prototype/`.
 
+## How it works
+```mermaid
+flowchart RL
+    cloud["SolarEdge cloud<br/>prod2.solaredge.com:22222"]
+
+    subgraph lan["Home network"]
+        subgraph ha["Home Assistant OS"]
+            core["Home Assistant Core"]
+            mqtt["Mosquitto broker app"]
+            app["SolarEdge Local app"]
+        end
+        fritz["FRITZ!Box"]
+        inverter["SolarEdge inverter<br/>(CPU firmware 2.x)"]
+    end
+
+    inverter -- "encrypted<br/>telemetry" --> fritz
+    fritz -- "unchanged" --> cloud
+    fritz -- "packet capture<br/>stream (HTTP)" --> app
+    fritz -.-|"forced reconnect<br/>(TR-064)"| app
+    app -- "decrypted values<br/>(discovery + state)" --> mqtt
+    mqtt --> core
+```
+The inverter keeps talking to the SolarEdge cloud as before. The app only listens: it captures the
+inverter's traffic on the FRITZ!Box, decrypts it with the inverter's key and publishes the values over MQTT.
+
 ## Requirements
 - SolarEdge inverter connected by LAN, behind a FRITZ!Box
 - The inverter's encryption key (read once over RS232, see `prototype/get_key_rs232_timeout.py`)
