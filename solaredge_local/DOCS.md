@@ -41,6 +41,12 @@ a new key. This happens at most once per hour. The inverter is always unblocked 
 app crash (on the next start). For this, enable **Heimnetz → Netzwerk → Netzwerkeinstellungen →
 Zugriff für Anwendungen zulassen** in the FRITZ!Box.
 
+TR-064 is a standard SOAP/UPnP interface for configuring routers from the local network. AVM uses it
+for FRITZ!Box apps and adds its own services, such as `X_AVM-DE_HostFilter`, the per-device internet
+block from the FRITZ!Box UI under Internet → Filter. It only works from the local network and uses the
+same FRITZ!Box user as the capture. Documentation:
+[FRITZ!Box interfaces (AVM)](https://fritz.com/pages/schnittstellen), section "Apps / TR-064".
+
 Without `force_reconnect`, unplug the inverter's LAN cable for about 30 seconds to force a new key.
 
 ## Entities

@@ -32,6 +32,9 @@ flowchart RL
 ```
 The inverter keeps talking to the SolarEdge cloud as before. The app only listens: it captures the
 inverter's traffic on the FRITZ!Box, decrypts it with the inverter's key and publishes the values over MQTT.
+When no session key has been seen for a while, it briefly blocks the inverter's internet access through the
+FRITZ!Box's [TR-064](https://fritz.com/pages/schnittstellen) interface (a standard router configuration
+API), so the inverter reconnects and sends a new key. Details in [DOCS.md](solaredge_local/DOCS.md#session-key).
 
 ## Requirements
 - SolarEdge inverter connected by LAN, behind a FRITZ!Box
