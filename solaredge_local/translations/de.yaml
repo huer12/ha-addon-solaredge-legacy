@@ -1,0 +1,28 @@
+configuration:
+  fritzbox_host:
+    name: FRITZ!Box-Host
+    description: Hostname oder IP-Adresse der FRITZ!Box, z. B. fritz.box oder 192.168.178.1.
+  fritzbox_user:
+    name: FRITZ!Box-Benutzer
+    description: Eigener FRITZ!Box-Benutzer mit dem Recht "FRITZ!Box Einstellungen" (für den Paketmitschnitt nötig).
+  fritzbox_password:
+    name: FRITZ!Box-Passwort
+    description: Passwort des FRITZ!Box-Benutzers.
+  inverter_ip:
+    name: IP-Adresse des Wechselrichters
+    description: IPv4-Adresse des SolarEdge-Wechselrichters. In der FRITZ!Box eine feste Adresse vergeben.
+  inverter_key:
+    name: Wechselrichter-Schlüssel
+    description: Privater Schlüssel des Wechselrichters, 32 Hex-Zeichen, einmalig über RS232 ausgelesen.
+  capture_interface:
+    name: Mitschnitt-Schnittstelle
+    description: FRITZ!Box-Schnittstelle, an der der Wechselrichter hängt (1-lan für die LAN-Anschlüsse).
+  optimizer_details:
+    name: Optimierer-Details
+    description: Zusätzlich Spannung, Strom und Temperatur pro Optimierer anlegen (in Home Assistant standardmässig deaktiviert).
+  force_reconnect:
+    name: Neuverbindung erzwingen
+    description: Kann der Verkehr des Wechselrichters 10 Minuten lang nicht entschlüsselt werden, wird sein Internetzugang per TR-064 für 3 Minuten gesperrt, damit er sich neu verbindet und einen neuen Sitzungsschlüssel sendet (höchstens einmal pro Stunde). Benötigt "Zugriff für Anwendungen zulassen" in der FRITZ!Box.
+  log_level:
+    name: Log-Level
+    description: Menge der Log-Ausgaben.

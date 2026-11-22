@@ -1,0 +1,28 @@
+configuration:
+  fritzbox_host:
+    name: FRITZ!Box host
+    description: Host name or IP address of the FRITZ!Box, e.g. fritz.box or 192.168.178.1.
+  fritzbox_user:
+    name: FRITZ!Box user
+    description: Dedicated FRITZ!Box user with the "FRITZ!Box settings" permission (needed for packet capture).
+  fritzbox_password:
+    name: FRITZ!Box password
+    description: Password of the FRITZ!Box user.
+  inverter_ip:
+    name: Inverter IP address
+    description: IPv4 address of the SolarEdge inverter. Give it a fixed address in the FRITZ!Box.
+  inverter_key:
+    name: Inverter key
+    description: Private encryption key of the inverter, 32 hex characters, read once over RS232.
+  capture_interface:
+    name: Capture interface
+    description: FRITZ!Box capture interface the inverter is connected to (1-lan for the LAN ports).
+  optimizer_details:
+    name: Optimizer details
+    description: Also create voltage, current and temperature entities per optimizer (disabled by default in Home Assistant).
+  force_reconnect:
+    name: Force reconnect
+    description: If the inverter traffic can't be decrypted for 10 minutes, block its internet access for 3 minutes via TR-064 so it reconnects and sends a new session key (at most once per hour). Needs "Zugriff für Anwendungen zulassen" in the FRITZ!Box.
+  log_level:
+    name: Log level
+    description: Amount of log output.

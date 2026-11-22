@@ -1,0 +1,28 @@
+# Secrets and captures - never commit
+*.eth
+*.pcap
+*.pcapng
+se_session_key.bin
+*session_key*
+fritzpw*.txt
+*password*.txt
+.env
+secrets.yaml
+captures/
+options.local.json
+.localdata/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
