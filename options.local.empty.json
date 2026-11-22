@@ -1,0 +1,11 @@
+{
+  "fritzbox_host": "",
+  "fritzbox_user": "",
+  "fritzbox_password": "",
+  "inverter_ip": "",
+  "inverter_key": "",
+  "capture_interface": "1-lan",
+  "optimizer_details": false,
+  "force_reconnect": true,
+  "log_level": "info"
+}
