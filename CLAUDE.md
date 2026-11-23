@@ -91,6 +91,10 @@ Run tests: `.\.venv\Scripts\python -m pytest` (see README for setup).
 - **Each optimizer is its own device** (`via_device` = inverter). Power and energy today enabled;
   Vin, Vout, Iin, temperature only with `optimizer_details` and disabled by default (recorder load:
   ~40 optimizers × 6 values would be >100k rows/day).
+- Daily optimizer check (`app/optimizer_check.py`): 10 min after the mode leaves 4/5, each optimizer's
+  energy today is compared with the median (all panels face the same way). Publishes relative yield
+  per optimizer and underperforming (< 85 %) / missing counts on the inverter. Known optimizers are
+  persisted in `/data/optimizers.json`; a replaced optimizer stays "missing" until that file is edited.
 - Required options have no default in `config.yaml`, so the Supervisor refuses to start until they are set.
 
 ## Licensing

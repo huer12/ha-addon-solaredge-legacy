@@ -5,6 +5,7 @@ STATUS_TOPIC = BASE + "/status"
 CAPTURE_TOPIC = BASE + "/capture"
 INVERTER_STATE_TOPIC = BASE + "/inverter/state"
 DIAGNOSTICS_TOPIC = BASE + "/inverter/diagnostics"
+OPTIMIZER_CHECK_TOPIC = BASE + "/inverter/optimizer_check"
 INVERTER_DEVICE_ID = "solaredge_local_inverter"
 DISCOVERY_PREFIX = "homeassistant"
 
@@ -68,6 +69,19 @@ DIAGNOSTIC_SENSORS = [
     Sensor("last_telemetry", "Last telemetry", "timestamp", state_class=None, diagnostic=True),
 ]
 
+OPTIMIZER_CHECK_SENSORS = [
+    Sensor("underperforming_optimizers", "Underperforming optimizers", state_class="measurement",
+           extra={"json_attributes_topic": OPTIMIZER_CHECK_TOPIC,
+                  "json_attributes_template": "{{ {'optimizers': value_json.underperforming} | tojson }}"}),
+    Sensor("missing_optimizers", "Missing optimizers", state_class="measurement",
+           extra={"json_attributes_topic": OPTIMIZER_CHECK_TOPIC,
+                  "json_attributes_template": "{{ {'optimizers': value_json.missing} | tojson }}"}),
+]
+
+OPTIMIZER_DAILY_SENSORS = [
+    Sensor("relative_yield", "Relative yield", unit="%", precision=0),
+]
+
 OPTIMIZER_SENSORS = [
     Sensor("power", "Power", "power", "W", precision=1),
     Sensor("energy_today", "Energy today", "energy", "Wh", "total_increasing", precision=0),
@@ -83,6 +97,10 @@ OPTIMIZER_DETAIL_SENSORS = [
 
 def optimizer_state_topic(opt_id: str) -> str:
     return "%s/optimizer/%s/state" % (BASE, opt_id)
+
+
+def optimizer_daily_topic(opt_id: str) -> str:
+    return "%s/optimizer/%s/daily" % (BASE, opt_id)
 
 
 def discovery_topic(device_id: str) -> str:
@@ -128,6 +146,8 @@ def inverter_discovery(version: str, model: str | None, serial: str | None) -> d
             for s in INVERTER_SENSORS}
     cmps.update({s.key: _component(INVERTER_DEVICE_ID, s, DIAGNOSTICS_TOPIC, BRIDGE_AVAILABILITY)
                  for s in DIAGNOSTIC_SENSORS})
+    cmps.update({s.key: _component(INVERTER_DEVICE_ID, s, OPTIMIZER_CHECK_TOPIC, BRIDGE_AVAILABILITY)
+                 for s in OPTIMIZER_CHECK_SENSORS})
     return {"device": device, "origin": _origin(version), "components": cmps}
 
 
@@ -142,6 +162,8 @@ def optimizer_discovery(version: str, opt_id: str, details: bool) -> dict:
     sensors = OPTIMIZER_SENSORS + (OPTIMIZER_DETAIL_SENSORS if details else [])
     cmps = {s.key: _component(device_id, s, optimizer_state_topic(opt_id), TELEMETRY_AVAILABILITY)
             for s in sensors}
+    cmps.update({s.key: _component(device_id, s, optimizer_daily_topic(opt_id), BRIDGE_AVAILABILITY)
+                 for s in OPTIMIZER_DAILY_SENSORS})
     return {"device": device, "origin": _origin(version), "components": cmps}
 
 

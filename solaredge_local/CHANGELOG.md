@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+- Daily optimizer check: relative yield per optimizer (% of the median), number of underperforming
+  (< 85 %) and missing optimizers on the inverter, with a log warning naming them.
+- Known optimizers are remembered across restarts.
+
 ## 0.2.1
 - Energy today keeps the day's value when the inverter resets its counter in the evening.
 - Temperature is unknown instead of 0 °C while the inverter is not producing.

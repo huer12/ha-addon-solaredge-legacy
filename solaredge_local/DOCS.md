@@ -52,11 +52,48 @@ Without `force_reconnect`, unplug the inverter's LAN cable for about 30 seconds 
 ## Entities
 - **SolarEdge Inverter**: AC power (total and per phase), AC voltage/current per phase, frequency,
   DC voltage, temperature, energy today, energy total (for the energy dashboard), status, plus
-  diagnostics (capture state, session key, last telemetry).
-- **Optimizer &lt;id&gt;**: one device per optimizer, linked to the inverter: power and energy today.
-  Optimizers appear one by one as they report.
+  diagnostics (capture state, session key, last telemetry), and the daily optimizer check
+  (underperforming and missing optimizers, see below).
+- **Optimizer &lt;id&gt;**: one device per optimizer, linked to the inverter: power, energy today and
+  relative yield. Optimizers appear one by one as they report.
 
 Telemetry entities become unavailable when the FRITZ!Box capture is down.
+
+## Daily optimizer check
+All optimizers sit in one string under the same sky, so a healthy one produces about as much as the
+others. Ten minutes after the inverter stops producing in the evening, the app compares each
+optimizer's energy today with the median of all optimizers:
+
+- **Relative yield** (per optimizer, %): 100 % = median. Healthy panels stay around 95–105 %.
+  Constant shading shows as a steady lower value, degradation as a slow drift over weeks.
+- **Underperforming optimizers** (inverter): number of optimizers below 85 % of the median. The
+  attribute `optimizers` lists each one with its percentage, e.g. `{"1012ABCD": 62.5}`.
+- **Missing optimizers** (inverter): optimizers that reported before but sent nothing today.
+  The attribute `optimizers` lists their IDs.
+
+The app also logs a warning naming the affected optimizers. Days with a median below 10 Wh are too
+dark for a meaningful comparison and are skipped. This assumes all panels face the same direction.
+
+To find out *why* an optimizer is low, enable its voltage/current entities (`optimizer_details`):
+an input voltage of about ⅔ of the others means one of the panel's bypass diodes is active (a shaded
+or damaged cell group); normal voltage with low current points to dirt, partial shade or degradation.
+
+Example automation for a notification:
+
+```yaml
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.solaredge_inverter_underperforming_optimizers
+    above: 0
+actions:
+  - action: notify.notify
+    data:
+      message: >-
+        Optimizers below 85 % of the median:
+        {% for id, pct in state_attr('sensor.solaredge_inverter_underperforming_optimizers', 'optimizers').items() %}
+        {{ id }} ({{ pct }} %){{ ', ' if not loop.last }}
+        {%- endfor %}
+```
 
 ## Credits
 - [se-logger](https://github.com/Jerrythafast/se-logger) – decryption and telemetry parsing (GPLv3)

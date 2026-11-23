@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -8,26 +9,35 @@ from pathlib import Path
 import aiomqtt
 
 from . import discovery as d
+from .optimizer_check import UNDERPERFORMING_PERCENT, evaluate
 
 log = logging.getLogger(__name__)
+
+# Optimizers send their last reports a few minutes after the inverter stops producing.
+OPTIMIZER_CHECK_DELAY_S = 600
 
 
 class Publisher:
     """Collects state from the sync decoder callbacks; flush() publishes what changed."""
 
-    def __init__(self, version: str, optimizer_details: bool, device_info_file: Path | None = None,
-                 energy_today_file: Path | None = None, today: Callable[[], date] = date.today):
+    def __init__(self, version: str, optimizer_details: bool, data_dir: Path | None = None,
+                 today: Callable[[], date] = date.today, clock: Callable[[], float] = time.monotonic):
         self._version = version
         self._details = optimizer_details
-        self._device_info_file = device_info_file
-        self._energy_today_file = energy_today_file
+        self._device_info_file = data_dir / "device_info.json" if data_dir else None
+        self._energy_today_file = data_dir / "energy_today.json" if data_dir else None
+        self._optimizers_file = data_dir / "optimizers.json" if data_dir else None
         self._today = today
+        self._clock = clock
         self._energy_today_day, self._energy_today = self._load_energy_today()
         self._client: aiomqtt.Client | None = None
         self._flush_lock = asyncio.Lock()
         self._sent: dict[str, str] = {}
         self._outbox: dict[str, str] = {}
-        self._optimizers: set[str] = set()
+        self._optimizers: set[str] = self._load_optimizers()
+        self._optimizer_energy: dict[str, tuple[str, int]] = {}
+        self._last_mode: int | None = None
+        self._check_at: float | None = None
         self._model, self._serial = self._load_device_info()
         self._energy_total: float | None = None
         self._diagnostics = {"capture_state": "starting", "session_key_valid": False, "last_telemetry": None}
@@ -42,6 +52,16 @@ class Publisher:
     def _save_device_info(self) -> None:
         if self._device_info_file:
             self._device_info_file.write_text(json.dumps({"model": self._model, "serial": self._serial}))
+
+    def _load_optimizers(self) -> set[str]:
+        try:
+            return set(json.loads(self._optimizers_file.read_text()))
+        except (AttributeError, OSError, ValueError, TypeError):
+            return set()
+
+    def _save_optimizers(self) -> None:
+        if self._optimizers_file:
+            self._optimizers_file.write_text(json.dumps(sorted(self._optimizers)))
 
     def _load_energy_today(self) -> tuple[str | None, float | None]:
         try:
@@ -122,6 +142,10 @@ class Publisher:
         elif total is not None:
             self._energy_total = total
         state["energy_today"] = self._hold_energy_today(state["energy_today"])
+        mode = state["mode"]
+        if self._last_mode in d.PRODUCING_MODES and mode not in d.PRODUCING_MODES:
+            self._check_at = self._clock() + OPTIMIZER_CHECK_DELAY_S
+        self._last_mode = mode
         self._queue(d.INVERTER_STATE_TOPIC, state)
         self._diagnostics["last_telemetry"] = datetime.now(UTC).isoformat(timespec="seconds")
         self._queue_diagnostics()
@@ -131,9 +155,39 @@ class Publisher:
         if opt_id not in self._optimizers:
             self._optimizers.add(opt_id)
             log.info("New optimizer %s (%d known)", opt_id, len(self._optimizers))
+            self._save_optimizers()
             self._queue(d.discovery_topic(d.optimizer_device_id(opt_id)),
                         d.optimizer_discovery(self._version, opt_id, self._details))
+        self._optimizer_energy[opt_id] = (self._today().isoformat(), t["e_day_wh"])
         self._queue(d.optimizer_state_topic(opt_id), d.optimizer_state(t, self._details))
+
+    def _run_due_optimizer_check(self) -> None:
+        if self._check_at is None or self._clock() < self._check_at:
+            return
+        self._check_at = None
+        day = self._today().isoformat()
+        energy = {opt_id: wh for opt_id, (report_day, wh) in self._optimizer_energy.items() if report_day == day}
+        result = evaluate(energy, self._optimizers)
+        if result is None:
+            log.info("Optimizer check skipped: too little production today")
+            return
+        for opt_id, pct in result.relative_yield.items():
+            self._queue(d.optimizer_daily_topic(opt_id), {"relative_yield": pct, "date": day})
+        self._queue(d.OPTIMIZER_CHECK_TOPIC, {
+            "underperforming_optimizers": len(result.underperforming),
+            "missing_optimizers": len(result.missing),
+            "underperforming": result.underperforming,
+            "missing": result.missing,
+            "date": day,
+        })
+        if result.underperforming or result.missing:
+            log.warning("Optimizer check: below %d %% of the median: %s; missing today: %s",
+                        UNDERPERFORMING_PERCENT,
+                        ", ".join("%s (%.0f %%)" % kv for kv in result.underperforming.items()) or "none",
+                        ", ".join(result.missing) or "none")
+        else:
+            log.info("Optimizer check: all %d optimizers within %d %% of the median",
+                     len(result.relative_yield), 100 - UNDERPERFORMING_PERCENT)
 
     def _handle_device_info(self, t: dict) -> None:
         model, serial = d.device_model_and_serial(t["strings"])
@@ -145,6 +199,7 @@ class Publisher:
             self._queue_inverter_discovery()
 
     async def flush(self) -> None:
+        self._run_due_optimizer_check()
         async with self._flush_lock:
             while self._client and self._outbox:
                 topic, payload = next(iter(self._outbox.items()))

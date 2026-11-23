@@ -86,7 +86,7 @@ class Day:
 
 async def test_energy_today_is_held_when_inverter_resets_it_in_the_evening(tmp_path):
     client, day = FakeClient(), Day()
-    pub = Publisher("0.1.0", False, energy_today_file=tmp_path / "e.json", today=day)
+    pub = Publisher("0.1.0", False, data_dir=tmp_path, today=day)
     await pub.attach(client)
 
     pub.handle_telemetry(producing_block(EdayAC=1600.0))
@@ -98,7 +98,7 @@ async def test_energy_today_is_held_when_inverter_resets_it_in_the_evening(tmp_p
 
 async def test_energy_today_resets_on_the_next_day(tmp_path):
     client, day = FakeClient(), Day()
-    pub = Publisher("0.1.0", False, energy_today_file=tmp_path / "e.json", today=day)
+    pub = Publisher("0.1.0", False, data_dir=tmp_path, today=day)
     await pub.attach(client)
     pub.handle_telemetry(producing_block(EdayAC=1600.0))
 
@@ -110,10 +110,10 @@ async def test_energy_today_resets_on_the_next_day(tmp_path):
 
 
 async def test_held_energy_today_survives_restart(tmp_path):
-    day, file = Day(), tmp_path / "e.json"
-    Publisher("0.1.0", False, energy_today_file=file, today=day).handle_telemetry(producing_block(EdayAC=1600.0))
+    day = Day()
+    Publisher("0.1.0", False, data_dir=tmp_path, today=day).handle_telemetry(producing_block(EdayAC=1600.0))
     client = FakeClient()
-    pub = Publisher("0.1.0", False, energy_today_file=file, today=day)
+    pub = Publisher("0.1.0", False, data_dir=tmp_path, today=day)
     await pub.attach(client)
 
     pub.handle_telemetry(producing_block(Mode=3, EdayAC=0.0))
@@ -161,8 +161,7 @@ async def test_optimizer_gets_own_device_with_details_disabled_by_default():
 
 
 async def test_device_info_updates_inverter_discovery_and_is_persisted(tmp_path):
-    info_file = tmp_path / "device_info.json"
-    client, pub = FakeClient(), Publisher("0.1.0", False, info_file)
+    client, pub = FakeClient(), Publisher("0.1.0", False, tmp_path)
     await pub.attach(client)
 
     pub.handle_telemetry(next(parse0500(device_info_block(0x7F012345, ["SolarEdge", "SE10K", "7F012345"]))))
@@ -170,7 +169,7 @@ async def test_device_info_updates_inverter_discovery_and_is_persisted(tmp_path)
 
     device = client.last(d.discovery_topic(d.INVERTER_DEVICE_ID))["device"]
     assert (device["model"], device["serial_number"]) == ("SE10K", "7F012345")
-    assert Publisher("0.1.0", False, info_file)._model == "SE10K"
+    assert Publisher("0.1.0", False, tmp_path)._model == "SE10K"
 
 
 async def test_capture_state_drives_availability_topic():
