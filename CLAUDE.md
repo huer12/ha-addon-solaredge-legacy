@@ -78,7 +78,8 @@ Run tests: `.\.venv\Scripts\python -m pytest` (see README for setup).
 - `-3.4028234663852886e+38` = "no value" → None. `Idc` is always "no value" on this firmware.
 - **Vac/Freq are garbage right after boot / at night** (seen 2.7e6 V, −5279 Hz) → only published when
   plausible (Vac 150–300 V, Freq 45–55 Hz).
-- Mode: 2 = night/sleep, 5 = producing (others unknown; published raw too).
+- Mode follows SunSpec I_STATUS numbering. Observed: 2 = night, 5 briefly at start-up (~08:16), 4 = producing all day, 3 after production stops (~16:36). Text in `discovery.MODE_TEXT`; raw value published too.
+- `EdayAC` drops to 0 when production stops in the evening (mode 3) → the add-on holds the day's value until the local date changes (persisted in `/data/energy_today.json`).
 - `Etotal_i` (u32, Wh) → energy-dashboard sensor (kWh, total_increasing); a decreasing value is ignored.
 
 ## Design decisions

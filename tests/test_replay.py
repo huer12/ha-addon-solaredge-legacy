@@ -13,7 +13,7 @@ def test_replay_decodes_full_pipeline_from_pcap_file(tmp_path, capsys):
     # Arrange
     key, msg0503 = os.urandom(16), os.urandom(34)
     telemetry = build_message(5, INVERTER, SERVER, FN_TELEMETRY,
-                              inverter3_block(0x7F012345, Mode=5, Pactive1=100.0, Pactive2=100.0, Pactive3=100.0)
+                              inverter3_block(0x7F012345, Mode=4, Pactive1=100.0, Pactive2=100.0, Pactive3=100.0)
                               + optimizer_block(0x1012ABCD, 30, 20, 1, 5, 20))
     stream = build_message(1, INVERTER, SERVER, FN_SESSION_KEY, msg0503) + encrypted_message(key, msg0503, telemetry)
     seq = 5000
@@ -28,6 +28,6 @@ def test_replay_decodes_full_pipeline_from_pcap_file(tmp_path, capsys):
 
     # Assert
     out = capsys.readouterr().out
-    assert 'INVERTER 7F012345 {"mode": 5, "status": "Producing"' in out
+    assert 'INVERTER 7F012345 {"mode": 4, "status": "Producing"' in out
     assert '"ac_power": 300.0' in out
     assert "OPTIMIZER 1012ABCD" in out

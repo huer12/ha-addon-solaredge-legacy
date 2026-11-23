@@ -1,4 +1,7 @@
 import json
+from datetime import date
+
+import pytest
 
 from app import discovery as d
 from app.mqtt import Publisher
@@ -21,7 +24,7 @@ class FakeClient:
 
 
 def producing_block(**overrides):
-    values = dict(Mode=5, Vac1=238.0, Vac2=237.5, Vac3=239.0, Iac1=0.9, Iac2=0.9, Iac3=0.9, Freq1=50.0,
+    values = dict(Mode=4, Vac1=238.0, Vac2=237.5, Vac3=239.0, Iac1=0.9, Iac2=0.9, Iac3=0.9, Freq1=50.0,
                   Pactive1=210.0, Pactive2=220.0, Pactive3=205.0, Vdc=751.0, Temp=28.0, EdayAC=1500.0,
                   Etotal_i=129_340_000)
     values.update(overrides)
@@ -59,6 +62,64 @@ def test_garbage_night_values_become_none():
     assert state["ac_current_l1"] is None
     assert state["ac_frequency"] is None
     assert state["status"] == "Night"
+
+
+@pytest.mark.parametrize("mode, text", [(3, "Wake-up"), (4, "Producing"), (5, "Producing (throttled)"),
+                                        (42, "Unknown (42)")])
+def test_mode_text(mode, text):
+    assert d.inverter_state(producing_block(Mode=mode))["status"] == text
+
+
+@pytest.mark.parametrize("mode, temp, expected", [(2, 0.0, None), (3, 0.0, None), (4, 0.0, 0.0),
+                                                  (3, 27.5, 27.5), (4, 30.0, 30.0)])
+def test_zero_temperature_outside_production_is_unknown(mode, temp, expected):
+    assert d.inverter_state(producing_block(Mode=mode, Temp=temp))["temperature"] == expected
+
+
+class Day:
+    def __init__(self):
+        self.value = date(2026, 11, 23)
+
+    def __call__(self):
+        return self.value
+
+
+async def test_energy_today_is_held_when_inverter_resets_it_in_the_evening(tmp_path):
+    client, day = FakeClient(), Day()
+    pub = Publisher("0.1.0", False, energy_today_file=tmp_path / "e.json", today=day)
+    await pub.attach(client)
+
+    pub.handle_telemetry(producing_block(EdayAC=1600.0))
+    pub.handle_telemetry(producing_block(Mode=3, EdayAC=0.0))
+    await pub.flush()
+
+    assert client.last(d.INVERTER_STATE_TOPIC)["energy_today"] == 1600
+
+
+async def test_energy_today_resets_on_the_next_day(tmp_path):
+    client, day = FakeClient(), Day()
+    pub = Publisher("0.1.0", False, energy_today_file=tmp_path / "e.json", today=day)
+    await pub.attach(client)
+    pub.handle_telemetry(producing_block(EdayAC=1600.0))
+
+    day.value = date(2026, 11, 24)
+    pub.handle_telemetry(producing_block(Mode=2, EdayAC=0.0))
+    await pub.flush()
+
+    assert client.last(d.INVERTER_STATE_TOPIC)["energy_today"] == 0
+
+
+async def test_held_energy_today_survives_restart(tmp_path):
+    day, file = Day(), tmp_path / "e.json"
+    Publisher("0.1.0", False, energy_today_file=file, today=day).handle_telemetry(producing_block(EdayAC=1600.0))
+    client = FakeClient()
+    pub = Publisher("0.1.0", False, energy_today_file=file, today=day)
+    await pub.attach(client)
+
+    pub.handle_telemetry(producing_block(Mode=3, EdayAC=0.0))
+    await pub.flush()
+
+    assert client.last(d.INVERTER_STATE_TOPIC)["energy_today"] == 1600
 
 
 async def test_decreasing_lifetime_energy_is_ignored():

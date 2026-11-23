@@ -123,7 +123,8 @@ async def mqtt_loop(publisher: Publisher) -> None:
 async def run_live(opts: Options, data_dir: Path) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     session_key_file = data_dir / "se_session_key.bin"
-    publisher = Publisher(__version__, opts.optimizer_details, data_dir / "device_info.json")
+    publisher = Publisher(__version__, opts.optimizer_details, data_dir / "device_info.json",
+                          data_dir / "energy_today.json")
     trigger = ReconnectTrigger()
 
     def on_key_state(valid: bool) -> None:

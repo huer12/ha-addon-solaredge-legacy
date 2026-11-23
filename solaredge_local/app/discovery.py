@@ -14,7 +14,18 @@ TELEMETRY_AVAILABILITY = {
 }
 BRIDGE_AVAILABILITY = {"availability": [{"topic": STATUS_TOPIC}]}
 
-MODE_TEXT = {2: "Night", 5: "Producing"}
+# SunSpec I_STATUS numbering; observed on CPU 2.x: 2 at night, 3 at dawn/dusk, 4 producing, 5 briefly at start-up.
+MODE_TEXT = {
+    1: "Off",
+    2: "Night",
+    3: "Wake-up",
+    4: "Producing",
+    5: "Producing (throttled)",
+    6: "Shutting down",
+    7: "Fault",
+    8: "Standby",
+}
+PRODUCING_MODES = (4, 5)
 
 
 @dataclass(frozen=True)
@@ -158,7 +169,10 @@ def inverter_state(t: dict) -> dict:
     state["ac_power"] = None if None in powers else round(sum(powers), 0)
     state["ac_frequency"] = _round(_in_range(t.get("Freq1"), 45, 55), 2)
     state["dc_voltage"] = _round(_in_range(t.get("Vdc"), 0, 1000), 1)
-    state["temperature"] = _round(_in_range(t.get("Temp"), -40, 120), 1)
+    temperature = _in_range(t.get("Temp"), -40, 120)
+    if temperature == 0 and mode not in PRODUCING_MODES:
+        temperature = None  # the inverter reports exactly 0.0 °C while it is not producing
+    state["temperature"] = _round(temperature, 1)
     state["energy_today"] = _round(_in_range(t.get("EdayAC"), 0, 200_000), 0)
     etotal = t.get("Etotal_i")
     state["energy_total"] = round(etotal / 1000, 3) if etotal else None
